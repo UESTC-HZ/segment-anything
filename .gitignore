@@ -35,8 +35,3 @@ model_ts*.txt
 .idea
 .vscode
 _darcs
-
-# demo 
-**/node_modules
-yarn.lock
-package-lock.json
