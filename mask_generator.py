@@ -23,11 +23,16 @@ def show_anns(anns):
         ax.imshow(np.dstack((img, m * 0.35)))
 
 
-image = cv2.imread('data/image.jpg')
+image = cv2.imread('data/test/images/image_2.jpg')
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-sam_checkpoint = "model/sam_vit_h_4b8939.pth"
-model_type = "vit_h"
+# plt.figure(figsize=(20,20))
+# plt.imshow(image)
+# plt.axis('off')
+# plt.show()
+
+sam_checkpoint = "model/sam_vit_b_01ec64.pth"
+model_type = "vit_b"
 
 device = "cuda"
 
@@ -38,15 +43,18 @@ mask_generator = SamAutomaticMaskGenerator(sam)
 mask_generator_2 = SamAutomaticMaskGenerator(
     model=sam,
     points_per_side=32,
-    pred_iou_thresh=0.86,
-    stability_score_thresh=0.92,
+    pred_iou_thresh=0.8,
+    stability_score_thresh=0.9,
     crop_n_layers=1,
     crop_n_points_downscale_factor=2,
     min_mask_region_area=100,  # Requires open-cv to run post-processing
 )
 masks = mask_generator.generate(image)
 
-plt.figure(figsize=(20,20))
+
+plt.imshow(image)
+plt.axis('off')
+plt.show()
 plt.imshow(image)
 show_anns(masks)
 plt.axis('off')

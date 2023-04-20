@@ -57,15 +57,14 @@ device = "cuda"
 
 sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
 sam.to(device)
-# mask_generator = SamAutomaticMaskGenerator(sam)
 predictor = SamPredictor(sam)
 
-image = cv2.imread('data/image.jpg')
+image = cv2.imread('data/test/images/image_1.jpg')
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 # mask = mask_generator.generate(image)
 predictor.set_image(image)
 
-# 点标记
+# # 点标记
 # label = cv2.imread('data/image.png')
 # result = get_object_points(label,1)
 # input_point = np.array(result['points'])
@@ -86,13 +85,27 @@ predictor.set_image(image)
 #     plt.show()
 
 # 框标记
-json_path = 'data/image.json'
+json_path = 'data/test/jsons/image_1.json'
 with open(json_path, "r") as f:
     jn = json.load(f)
 
-bboxes = get_object_bbox(jn, 2)  # 类别编号，1农田，2大棚...
-print(len(bboxes))
-# input_box = np.array(bboxes[3])
+bboxes = get_object_bbox(jn, 1)  # 类别编号，1农田，2大棚...
+
+# input_box = np.array(bboxes[1])
+# masks, _, _ = predictor.predict(
+#     point_coords=None,
+#     point_labels=None,
+#     box=input_box[None, :],
+#     multimask_output=False,
+# )
+#
+# plt.figure(figsize=(10, 10))
+# plt.imshow(image)
+# show_mask(masks[0], plt.gca())
+# show_box(input_box, plt.gca())
+# plt.axis('off')
+# plt.show()
+
 input_boxes = torch.tensor(bboxes, device=predictor.device)
 transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
 masks, _, _ = predictor.predict_torch(
