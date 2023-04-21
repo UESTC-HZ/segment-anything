@@ -62,10 +62,10 @@ def create_geo_segany_laebl(root):
                 for mask in masks:
                     tmp_mask = mask.cpu().numpy()[0]
                     full_mask = full_mask | tmp_mask
-                plt.figure(figsize=(10, 10))
-                plt.imshow(full_mask)
-                for box in input_boxes:
-                    show_box(box.cpu().numpy(), plt.gca())
+                # plt.figure(figsize=(10, 10))
+                # plt.imshow(full_mask)
+                # for box in input_boxes:
+                #     show_box(box.cpu().numpy(), plt.gca())
                 # plt.show()
                 full_mask, _ = remove_small_regions(full_mask, 1000, "holes")
                 full_mask, _ = remove_small_regions(full_mask, 1000, "islands")
