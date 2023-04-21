@@ -137,5 +137,5 @@ def create_segany_label(root, dataset_type):
 
 
 if __name__ == '__main__':
-    root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1'
+    root = 'data/compress_0.1_images_1'
     create_segany_label(root, "geo")
