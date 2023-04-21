@@ -46,7 +46,7 @@ def get_geo_bbox(seg_json, padding=None):
     labels = seg_json["labels"]
 
     width = abs(int((boundary[2] - boundary[0]) / geo[1]))
-    height = abs(int((boundary[1] - boundary[3]) / geo[5]))
+    height = abs(int((boundary[3] - boundary[1]) / geo[5]))
 
     bboxes = {}
     farmland = []
@@ -59,20 +59,20 @@ def get_geo_bbox(seg_json, padding=None):
         [xmin, ymin] = np.amin(polygon, 0)
         [xmax, ymax] = np.amax(polygon, 0)
 
-        if xmax < boundary[0] or ymin > boundary[1] or xmin > boundary[2] or ymax < boundary[3]:
-            continue  # 判断整个框是不是在界外
+        # if xmax < boundary[0] or ymin > boundary[1] or xmin > boundary[2] or ymax < boundary[3]:
+        #     continue  # 判断整个框是不是在界外
 
         # 保证框全部在界内
-        xmin = max(xmin, boundary[0])
-        ymin = max(ymin, boundary[3])
-        xmax = min(xmax, boundary[2])
-        ymax = min(ymax, boundary[1])
+        # xmin = max(xmin, boundary[0])
+        # ymin = max(ymin, boundary[3])
+        # xmax = min(xmax, boundary[2])
+        # ymax = min(ymax, boundary[1])
 
         # 转像素坐标
         xmin_ = abs(int((xmin - boundary[0]) / geo[1]))
-        ymax_ = abs(int((ymin - boundary[1]) / geo[5]))
+        ymax_ = abs(int((ymin - boundary[3]) / geo[5]))
         xmax_ = abs(int((xmax - boundary[0]) / geo[1]))
-        ymin_ = abs(int((ymax - boundary[1]) / geo[5]))
+        ymin_ = abs(int((ymax - boundary[3]) / geo[5]))
         if (ymax_ - ymin_) * (xmax_ - xmin_) < 1000:  # 面积太小的框丢掉
             continue
         bbox = [max(xmin_ - padding, 0),

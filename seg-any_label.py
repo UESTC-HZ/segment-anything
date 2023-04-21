@@ -34,22 +34,13 @@ def create_geo_segany_laebl(root):
         image = cv2.imread(os.path.join(image_path, img))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         h, w = image.shape[:2]
-        # 压缩后的图片大小
-        if h > 1024 or w > 1024:
-            if h >= w:
-                h_ = 1024
-                w_ = int(w * h_ / h)
-            elif h < w:
-                w_ = 1024
-                h_ = int(h * w_ / w)
-
 
         # print("height:" + str(height) + " width:" + str(width))
 
         json_name = img.replace('jpg', 'json')
         with open(os.path.join(json_label_path, json_name), "r") as f:
             jn = json.load(f)
-        bboxes = get_geo_bbox(jn, 5)
+        bboxes = get_geo_bbox(jn, 0)
 
         class_mask = []
         for i in range(len(GEO_CLASS_NAMES)):
@@ -59,7 +50,7 @@ def create_geo_segany_laebl(root):
             if len(input_boxes) > 0:
                 input_boxes = torch.tensor(input_boxes, device=sam.device)
                 sam.set_image(image)
-                transformed_boxes = sam.transform.apply_boxes_torch(input_boxes, (h,w))
+                transformed_boxes = sam.transform.apply_boxes_torch(input_boxes, (h, w))
 
                 masks, _, _ = sam.predict_torch(
                     point_coords=None,
@@ -71,14 +62,16 @@ def create_geo_segany_laebl(root):
                 for mask in masks:
                     tmp_mask = mask.cpu().numpy()[0]
                     full_mask = full_mask | tmp_mask
-                # plt.imshow(full_mask)
-                # for box in input_boxes:
-                #     show_box(box.cpu().numpy(), plt.gca())
-                # plt.show()
+                plt.figure(figsize=(10, 10))
+                plt.imshow(full_mask)
+                for box in input_boxes:
+                    show_box(box.cpu().numpy(), plt.gca())
+                plt.show()
                 full_mask, _ = remove_small_regions(full_mask, 1000, "holes")
                 full_mask, _ = remove_small_regions(full_mask, 1000, "islands")
-                # plt.imshow(full_mask)
-                # plt.show()
+                plt.figure(figsize=(10, 10))
+                plt.imshow(full_mask)
+                plt.show()
 
             class_mask.append(full_mask)
 
@@ -89,10 +82,22 @@ def create_geo_segany_laebl(root):
             segany_mask = np.add.reduce([segany_mask, mask])
 
             segany_mask = np.where(segany_mask > (i + 1), segany_mask - (i + 1), segany_mask)
-        segany_mask = cv2.resize(segany_mask, (h_, w_))
+
+        # 压缩后的图片大小
+        h_ = h
+        w_ = w
+        if h > 1024 or w > 1024:
+            if h >= w:
+                h_ = 1024
+                w_ = int(w * h_ / h)
+            elif h < w:
+                w_ = 1024
+                h_ = int(h * w_ / w)
+        segany_mask = cv2.resize(segany_mask, (w_, h_))
         # print(np.unique(segany_mask))
-        # plt.imshow(segany_mask)
-        # plt.show()
+        plt.figure(figsize=(10, 10))
+        plt.imshow(segany_mask)
+        plt.show()
         cv2.imwrite(os.path.join(segany_label_path, img.replace(".jpg", ".png")), segany_mask)
 
 
@@ -132,5 +137,5 @@ def create_segany_label(root, dataset_type):
 
 
 if __name__ == '__main__':
-    root = 'D:\Desktop\classes_08\merge_house\compress_0.2_images_10'
+    root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1'
     create_segany_label(root, "geo")
