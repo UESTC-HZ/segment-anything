@@ -66,12 +66,12 @@ def create_geo_segany_laebl(root):
                 plt.imshow(full_mask)
                 for box in input_boxes:
                     show_box(box.cpu().numpy(), plt.gca())
-                plt.show()
+                # plt.show()
                 full_mask, _ = remove_small_regions(full_mask, 1000, "holes")
                 full_mask, _ = remove_small_regions(full_mask, 1000, "islands")
-                plt.figure(figsize=(10, 10))
-                plt.imshow(full_mask)
-                plt.show()
+                # plt.figure(figsize=(10, 10))
+                # plt.imshow(full_mask)
+                # plt.show()
 
             class_mask.append(full_mask)
 
@@ -95,9 +95,9 @@ def create_geo_segany_laebl(root):
                 h_ = int(h * w_ / w)
         segany_mask = cv2.resize(segany_mask, (w_, h_))
         # print(np.unique(segany_mask))
-        plt.figure(figsize=(10, 10))
-        plt.imshow(segany_mask)
-        plt.show()
+        # plt.figure(figsize=(10, 10))
+        # plt.imshow(segany_mask)
+        # plt.show()
         cv2.imwrite(os.path.join(segany_label_path, img.replace(".jpg", ".png")), segany_mask)
 
 
