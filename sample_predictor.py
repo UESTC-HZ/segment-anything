@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from segment_anything import SamPredictor, sam_model_registry, SamAutomaticMaskGenerator
-from label_process import get_object_points, get_object_bbox
+from label_process import get_object_points, get_geo_bbox
 
 
 def show_mask(mask, ax, random_color=False):
@@ -89,7 +89,7 @@ json_path = 'data/test/jsons/image_1.json'
 with open(json_path, "r") as f:
     jn = json.load(f)
 
-bboxes = get_object_bbox(jn, 1)  # 类别编号，1农田，2大棚...
+bboxes = get_geo_bbox(jn, 1)  # 类别编号，1农田，2大棚...
 
 # input_box = np.array(bboxes[1])
 # masks, _, _ = predictor.predict(

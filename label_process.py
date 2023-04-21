@@ -5,7 +5,100 @@ import cv2
 import numpy as np
 
 
-def get_object_bbox(seg_json, class_id):
+
+def show_box(box, ax):
+    x0, y0 = box[0], box[1]
+    w, h = box[2] - box[0], box[3] - box[1]
+    ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='red', facecolor=(0, 0, 0, 0), lw=1))
+
+
+def remove_small_regions(mask: np.ndarray, area_thresh: float, mode: str):
+    """
+    Removes small disconnected regions and holes in a mask. Returns the
+    mask and an indicator of if the mask has been modified.
+    """
+    import cv2  # type: ignore
+
+    assert mode in ["holes", "islands"]
+    correct_holes = mode == "holes"
+    working_mask = (correct_holes ^ mask).astype(np.uint8)
+    n_labels, regions, stats, _ = cv2.connectedComponentsWithStats(working_mask, 8)
+    sizes = stats[:, -1][1:]  # Row 0 is background label
+    small_regions = [i + 1 for i, s in enumerate(sizes) if s < area_thresh]
+    if len(small_regions) == 0:
+        return mask, False
+    fill_labels = [0] + small_regions
+    if not correct_holes:
+        fill_labels = [i for i in range(n_labels) if i not in fill_labels]
+        # If every region is below threshold, keep largest
+        if len(fill_labels) == 0:
+            fill_labels = [int(np.argmax(sizes)) + 1]
+    mask = np.isin(regions, fill_labels)
+    return mask, True
+
+
+def get_geo_bbox(seg_json, padding=None):
+    if padding == None:
+        padding = 0
+    geo = seg_json["geo_transform"]
+    boundary = seg_json["bbox"]
+    polygons = seg_json["polygons"]
+    labels = seg_json["labels"]
+
+    width = abs(int((boundary[2] - boundary[0]) / geo[1]))
+    height = abs(int((boundary[1] - boundary[3]) / geo[5]))
+
+    bboxes = {}
+    farmland = []
+    greenhouse = []
+    tree = []
+    pond = []
+    house = []
+    for label, polygon in zip(labels, polygons):
+        polygon = np.array(polygon)
+        [xmin, ymin] = np.amin(polygon, 0)
+        [xmax, ymax] = np.amax(polygon, 0)
+
+        if xmax < boundary[0] or ymin > boundary[1] or xmin > boundary[2] or ymax < boundary[3]:
+            continue  # 判断整个框是不是在界外
+
+        # 保证框全部在界内
+        xmin = max(xmin, boundary[0])
+        ymin = max(ymin, boundary[3])
+        xmax = min(xmax, boundary[2])
+        ymax = min(ymax, boundary[1])
+
+        # 转像素坐标
+        xmin_ = abs(int((xmin - boundary[0]) / geo[1]))
+        ymax_ = abs(int((ymin - boundary[1]) / geo[5]))
+        xmax_ = abs(int((xmax - boundary[0]) / geo[1]))
+        ymin_ = abs(int((ymax - boundary[1]) / geo[5]))
+        if (ymax_ - ymin_) * (xmax_ - xmin_) < 1000:  # 面积太小的框丢掉
+            continue
+        bbox = [max(xmin_ - padding, 0),
+                max(ymin_ - padding, 0),
+                min(xmax_ + padding, width),
+                min(ymax_ + padding, height)]
+        if label == 1:
+            farmland.append(bbox)
+        elif label == 2:
+            greenhouse.append(bbox)
+        elif label == 3:
+            tree.append(bbox)
+        elif label == 4:
+            pond.append(bbox)
+        elif label == 5:
+            house.append(bbox)
+    bboxes['farmland'] = farmland
+    bboxes['greenhouse'] = greenhouse
+    bboxes['tree'] = tree
+    bboxes['pond'] = pond
+    bboxes['house'] = house
+
+    return bboxes
+
+
+def get_bbox(seg_json, class_id):
     geo = seg_json["geo_transform"]
     boundary = seg_json["bbox"]
     polygons = seg_json["polygons"]
@@ -38,6 +131,7 @@ def get_object_points(seg_mask, class_id):
     if len(seg_mask.shape) == 3:
         seg_mask = seg_mask[:, :, 0]
     result = {}
+
     segment_mask = np.where(seg_mask == class_id, class_id, 0)
     plt.imshow(segment_mask)
     plt.title('mask')
@@ -73,7 +167,7 @@ def main():
     root = 'data/image.json'
     with open(root, "r") as f:
         jn = json.load(f)
-    bboxes = get_object_bbox(jn, 1)
+    bboxes = get_geo_bbox(jn, 1)
 
 
 if __name__ == '__main__':
