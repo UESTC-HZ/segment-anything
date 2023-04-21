@@ -20,7 +20,7 @@ DATASET_TYPE = ['geo', 'Cityscapes', 'COCOstuff']
 GEO_CLASS_NAMES = ['farmland', 'greenhouse', 'tree', 'pond', 'house']
 
 
-def create_geo_segany_laebl(root):
+def create_geo_segany_laebl(root, model_type=VIT_B):
     image_path = os.path.join(root, "images")
     json_label_path = os.path.join(root, "jsons")
     segany_label_path = os.path.join(root, "seg-any_mask")
@@ -28,7 +28,7 @@ def create_geo_segany_laebl(root):
         os.mkdir(segany_label_path)
 
     # 初始化segment-anything模型
-    sam = load_predictor_model(VIT_B)
+    sam = load_predictor_model(model_type)
 
     for img in tqdm(os.listdir(image_path)):
         image = cv2.imread(os.path.join(image_path, img))
@@ -126,16 +126,18 @@ def create_COCOstuff_segany_laebl():
     pass
 
 
-def create_segany_label(root, dataset_type):
+def create_segany_label(root, dataset_type, model_type):
     assert dataset_type in DATASET_TYPE, 'DataSet Type Error'
     if dataset_type is DATASET_TYPE[0]:
-        create_geo_segany_laebl(root)
+        create_geo_segany_laebl(root, model_type)
     elif dataset_type is DATASET_TYPE[1]:
-        create_Cityscapes_segany_laebl(root)
+        create_Cityscapes_segany_laebl(root, model_type)
     elif dataset_type is DATASET_TYPE[2]:
-        create_COCOstuff_segany_laebl(root)
+        create_COCOstuff_segany_laebl(root, model_type)
 
 
 if __name__ == '__main__':
     root = 'data/compress_0.1_images_1'
-    create_segany_label(root, "geo")
+    dataset_type = "geo"
+    model_type = VIT_H
+    create_segany_label(root, dataset_type, model_type)

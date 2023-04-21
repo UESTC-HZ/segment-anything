@@ -11,6 +11,7 @@ def load_predictor_model(model_type, device="cuda"):
     sam_checkpoint = model[model_type]
     sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
     sam.to(device)
+    print("Loaded Model: " + sam_checkpoint)
     predictor = SamPredictor(sam)
     return predictor
 
