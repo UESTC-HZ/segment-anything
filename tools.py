@@ -116,23 +116,19 @@ def create_cityscape_dataset(root, extra=True):
     else:
         images_path = os.path.join(root, 'images')
         labels_path = os.path.join(root, 'labels')
-    if os.path.exists(images_path):
-        os.makedirs(images_path)
-    if os.path.exists(labels_path):
-        os.makedirs(labels_path)
 
     images_train = os.path.join(images_path, 'train')
     images_val = os.path.join(images_path, 'val')
-    if os.path.exists(images_train):
+    if not os.path.exists(images_train):
         os.makedirs(images_train)
-    if os.path.exists(images_val):
+    if not os.path.exists(images_val):
         os.makedirs(images_val)
 
     labels_train = os.path.join(labels_path, 'train')
     labels_val = os.path.join(labels_path, 'val')
-    if os.path.exists(labels_train):
+    if not os.path.exists(labels_train):
         os.makedirs(labels_train)
-    if os.path.exists(labels_val):
+    if not os.path.exists(labels_val):
         os.makedirs(labels_val)
 
     # 1.先移动train图片
