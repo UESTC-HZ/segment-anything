@@ -91,20 +91,20 @@ with open(json_path, "r") as f:
 
 bboxes = get_geo_bbox(jn, 1)  # 类别编号，1农田，2大棚...
 
-# input_box = np.array(bboxes[1])
-# masks, _, _ = predictor.predict(
-#     point_coords=None,
-#     point_labels=None,
-#     box=input_box[None, :],
-#     multimask_output=False,
-# )
-#
-# plt.figure(figsize=(10, 10))
-# plt.imshow(image)
-# show_mask(masks[0], plt.gca())
-# show_box(input_box, plt.gca())
-# plt.axis('off')
-# plt.show()
+input_box = np.array(bboxes[1])
+masks, _, _ = predictor.predict(
+    point_coords=None,
+    point_labels=None,
+    box=input_box[None, :],
+    multimask_output=False,
+)
+
+plt.figure(figsize=(10, 10))
+plt.imshow(image)
+show_mask(masks[0], plt.gca())
+show_box(input_box, plt.gca())
+plt.axis('off')
+plt.show()
 
 input_boxes = torch.tensor(bboxes, device=predictor.device)
 transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])

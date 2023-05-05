@@ -8,7 +8,7 @@ import torch
 
 from tqdm import tqdm
 
-from label_process import get_geo_bbox, remove_small_regions, show_box
+from label_process import get_geo_bbox, remove_small_regions, show_box, get_Cityscapes_bbox
 from load_model import load_predictor_model
 from segment_anything import predictor
 
@@ -18,6 +18,37 @@ VIT_B = 'vit_b'
 DATASET_TYPE = ['geo', 'Cityscapes', 'COCOstuff']
 
 GEO_CLASS_NAMES = ['farmland', 'greenhouse', 'tree', 'pond', 'house']
+Cityscapes_classes = {'unlabeled': 0, 'ego vehicle': 1, 'rectification border': 2, 'out of roi': 3, 'static': 4,
+                      'dynamic': 5, 'ground': 6, 'road': 7, 'sidewalk': 8, 'parking': 9, 'rail track': 10,
+                      'building': 11, 'wall': 12, 'fence': 13, 'guard rail': 14, 'bridge': 15, 'tunnel': 16, 'pole': 17,
+                      'polegroup': 18, 'traffic light': 19, 'traffic sign': 20, 'vegetation': 21, 'terrain': 22,
+                      'sky': 23, 'person': 24, 'rider': 25, 'car': 26, 'cargroup': 26, 'truck': 27, 'bus': 28,
+                      'caravan': 29, 'trailer': 30, 'train': 31, 'motorcycle': 32, 'bicycle': 33}
+Cityscapes_available_classes = ['road', 'sidewalk', 'building', 'wall', 'fence', 'pole', 'traffic light',
+                                'traffic sign', 'vegetation', 'terrain', 'person', 'rider', 'car', 'cargroup',
+                                'truck', 'bus', 'train', 'motorcycle', 'bicycle']
+Cityscapes_trainId = {'road': 0,
+                      'sidewalk': 1,
+                      'building': 2,
+                      'wall': 3,
+                      'fence': 4,
+                      'pole': 5,
+                      'traffic light': 6,
+                      'traffic sign': 7,
+                      'vegetation': 8,
+                      'terrain': 9,
+                      'sky': 10,
+                      'person': 11,
+                      'rider': 12,
+                      'car': 13,
+                      'cargroup': 13,
+                      'truck': 14,
+                      'bus': 15,
+                      'train': 16,
+                      'motorcycle': 17,
+                      'bicycle': 18}
+Cityscapes_instance_classes = ['person', 'rider', 'car', 'cargroup', 'truck', 'bus', 'caravan', 'trailer', 'train',
+                               'motorcycle', 'bicycle']
 
 
 def create_geo_segany_laebl(root, model_type=VIT_B):
@@ -28,11 +59,12 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
         os.mkdir(segany_label_path)
 
     # 初始化segment-anything模型
-    sam = load_predictor_model(model_type)
+    predictor = load_predictor_model(model_type)
 
     for img in tqdm(os.listdir(image_path)):
         image = cv2.imread(os.path.join(image_path, img))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        predictor.set_image(image)
         h, w = image.shape[:2]
 
         # print("height:" + str(height) + " width:" + str(width))
@@ -40,7 +72,7 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
         json_name = img.replace('jpg', 'json')
         with open(os.path.join(json_label_path, json_name), "r") as f:
             jn = json.load(f)
-        bboxes = get_geo_bbox(jn, 0)
+        bboxes = get_geo_bbox(jn, 20)
 
         class_mask = []
         for i in range(len(GEO_CLASS_NAMES)):
@@ -48,11 +80,11 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
             full_mask = np.zeros((h, w), dtype=bool)
             input_boxes = np.array(bboxes[class_name])
             if len(input_boxes) > 0:
-                input_boxes = torch.tensor(input_boxes, device=sam.device)
-                sam.set_image(image)
-                transformed_boxes = sam.transform.apply_boxes_torch(input_boxes, (h, w))
+                input_boxes = torch.tensor(input_boxes, device=predictor.device)
 
-                masks, _, _ = sam.predict_torch(
+                transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, (h, w))
+
+                masks, _, _ = predictor.predict_torch(
                     point_coords=None,
                     point_labels=None,
                     boxes=transformed_boxes,
@@ -101,25 +133,82 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
         cv2.imwrite(os.path.join(segany_label_path, img.replace(".jpg", ".png")), segany_mask)
 
 
-def create_Cityscapes_segany_laebl(root):
-    image_path = os.path.join(root, "images")
-    json_label_path = os.path.join(root, "labels")
-    segany_label_path = os.path.join(root, "seg-any_labels")
-    if not os.path.exists(segany_label_path):
-        os.mkdir(segany_label_path)
-
+def create_Cityscapes_segany_laebl(root, model_type=VIT_B):
+    city_image_path = os.path.join(root, "leftImg8bit", "train_extra")
+    city_label_path = os.path.join(root, "gtCoarse", "train_extra")
     # 初始化segment-anything模型
-    sam = load_predictor_model(VIT_B)
+    predictor = load_predictor_model(model_type)
 
-    for img in os.listdir(image_path):
-        image = cv2.imread(os.path.join(image_path, img))
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    for city in os.listdir(city_image_path):
+        print("processing city:" + city)
+        image_path = os.path.join(city_image_path, city)
+        json_label_path = os.path.join(city_label_path, city)
 
-        json_name = img.replace('png', 'json')
-        with open(os.path.join(json_label_path, json_name), "r") as f:
-            jn = json.load(f)
-        w = jn['imgWidth']
-        h = jn['imgHeight']
+        for img in tqdm(os.listdir(image_path)):
+            image = cv2.imread(os.path.join(image_path, img))  # 加载图片
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            predictor.set_image(image)
+
+            # 加载原始标注
+            # ori_mask = cv2.imread(
+            #     os.path.join(json_label_path, img.replace('_leftImg8bit.png', '_gtCoarse_labelIds.png')),
+            #     cv2.IMREAD_GRAYSCALE)
+            # 实例标注
+            # ori_mask = cv2.imread(
+            #     os.path.join(json_label_path, img.replace('_leftImg8bit.png', '_gtCoarse_instanceIds.png')),
+            #     cv2.IMREAD_GRAYSCALE)
+
+            # plt.figure(figsize=(10, 10))
+            # plt.title('ori-mask')
+            # plt.imshow(ori_mask)
+            # plt.show()
+
+            # 加载json标注
+            json_name = img.replace('_leftImg8bit.png', '_gtCoarse_polygons.json')
+            with open(os.path.join(json_label_path, json_name), "r") as f:
+                jn = json.load(f)
+            w = jn['imgWidth']
+            h = jn['imgHeight']
+            objects = jn['objects']
+
+            segany_mask = np.zeros((h, w)) + 255
+            # segany_mask = ori_mask
+
+            if len(objects) is None:
+                continue
+
+            # plt.figure(figsize=(10, 10))
+            for obj in objects:
+                class_name = obj['label']
+                if Cityscapes_trainId.__contains__(class_name):
+                    class_id = Cityscapes_trainId[class_name]
+                else:
+                    continue
+                bbox = get_Cityscapes_bbox(obj, w, h, 20)
+                # 添加框方便观察补全效果
+                # show_box(bbox, plt.gca())
+
+                input_box = np.array(bbox)
+
+                mask, _, _ = predictor.predict(
+                    point_coords=None,
+                    point_labels=None,
+                    box=input_box[None, :],
+                    multimask_output=False,
+                )
+
+                mask, _ = remove_small_regions(mask[0], 2000, "holes")
+                mask, _ = remove_small_regions(mask, 1000, "islands")
+
+                segany_mask = np.where(mask, class_id, segany_mask)
+
+            # plt.figure(figsize=(10, 10))
+            # plt.title('seg-any')
+            # plt.imshow(segany_mask)
+            # plt.show()
+
+            cv2.imwrite(os.path.join(json_label_path, img.replace("_leftImg8bit.png", "_gtCoarse_labelTrainIds.png")),
+                        segany_mask)
 
 
 def create_COCOstuff_segany_laebl():
@@ -137,7 +226,8 @@ def create_segany_label(root, dataset_type, model_type):
 
 
 if __name__ == '__main__':
-    root = 'data/compress_0.1_images_1'
-    dataset_type = "geo"
+    root = '/data/cityscapes/'
+    # 'geo', 'Cityscapes', 'COCOstuff'
+    dataset_type = "Cityscapes"
     model_type = VIT_H
     create_segany_label(root, dataset_type, model_type)
