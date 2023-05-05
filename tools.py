@@ -55,7 +55,7 @@ def show_image(root=None):
     images = os.path.join(root, "images")
     # labels = os.path.join(root, "labels")
     inference = os.path.join(root, "inference")
-    size = (700,800)
+    size = (700, 800)
 
     for i, img in enumerate(os.listdir(images)):
         image_path = os.path.join(images, img)
@@ -105,9 +105,97 @@ def show_image(root=None):
     # plt.show()
 
 
+def create_cityscape_dataset(root, extra=True):
+    leftImg8bit_path = os.path.join(root, 'leftImg8bit')
+    gtFine_path = os.path.join(root, 'gtFine')
+    gtCoarse_path = os.path.join(root, 'gtCoarse')
+
+    if extra:
+        images_path = os.path.join(root, 'images_extra')
+        labels_path = os.path.join(root, 'labels_extra')
+    else:
+        images_path = os.path.join(root, 'images')
+        labels_path = os.path.join(root, 'labels')
+
+    images_train = os.path.join(images_path, 'train')
+    images_val = os.path.join(images_path, 'val')
+    if os.path.exists(images_train):
+        os.makedirs(images_train)
+    if os.path.exists(images_val):
+        os.makedirs(images_val)
+
+    labels_train = os.path.join(labels_path, 'train')
+    labels_val = os.path.join(labels_path, 'val')
+    if os.path.exists(labels_train):
+        os.makedirs(labels_train)
+    if os.path.exists(labels_val):
+        os.makedirs(labels_val)
+
+    # 1.先移动train图片
+    trian_path = os.path.join(leftImg8bit_path, 'train')
+    for city in os.listdir(trian_path):
+        print('Move images from ' + city)
+        city_images_path = os.path.join(trian_path, city)
+        for image in tqdm(os.listdir(city_images_path)):
+            shutil.copyfile(os.path.join(city_images_path, image), os.path.join(images_train, image))
+
+    # 2.再移动train_extra图片
+    if extra:
+        trian_path = os.path.join(leftImg8bit_path, 'train_extra')
+        for city in os.listdir(trian_path):
+            print('Move images from ' + city)
+            city_images_path = os.path.join(trian_path, city)
+            for image in tqdm(os.listdir(city_images_path)):
+                shutil.copyfile(os.path.join(city_images_path, image), os.path.join(images_train, image))
+
+    # 3.再移动val图片
+    trian_path = os.path.join(leftImg8bit_path, 'val')
+    for city in os.listdir(trian_path):
+        print('Move images from ' + city)
+        city_images_path = os.path.join(trian_path, city)
+        for image in tqdm(os.listdir(city_images_path)):
+            shutil.copyfile(os.path.join(city_images_path, image), os.path.join(images_val, image))
+
+    # 4.先移动train标签
+    val_path = os.path.join(gtFine_path, 'train')
+    for city in os.listdir(val_path):
+        print('Move labels from ' + city)
+        city_labels_path = os.path.join(val_path, city)
+        for label in tqdm(os.listdir(city_labels_path)):
+            if label.endswith('_labelTrainIds.png'):
+                shutil.copyfile(os.path.join(city_labels_path, label), os.path.join(labels_train, label))
+
+    # 5.再移动train_extra标签
+    if extra:
+        val_path = os.path.join(gtCoarse_path, 'train_extra')
+        for city in os.listdir(val_path):
+            print('Move labels from ' + city)
+            city_labels_path = os.path.join(val_path, city)
+            for label in tqdm(os.listdir(city_labels_path)):
+                if label.endswith('_labelTrainIds.png'):
+                    shutil.copyfile(os.path.join(city_labels_path, label), os.path.join(labels_train, label))
+
+    # 6.再移动val标签
+    val_path = os.path.join(gtFine_path, 'val')
+    for city in os.listdir(val_path):
+        print('Move labels from ' + city)
+        city_labels_path = os.path.join(val_path, city)
+        for label in tqdm(os.listdir(city_labels_path)):
+            if label.endswith('_labelTrainIds.png'):
+                shutil.copyfile(os.path.join(city_labels_path, label), os.path.join(labels_val, label))
+
+    print('Images train number: ' + str(len(os.listdir(images_train))))
+    print('Labels train number: ' + str(len(os.listdir(labels_train))))
+    print('Images val number: ' + str(len(os.listdir(images_val))))
+    print('Labels val number: ' + str(len(os.listdir(labels_val))))
+
+
 if __name__ == '__main__':
-    root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1\merge_data'
+    # root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1\merge_data'
+    root = '/data/cityscapes/'
+    create_cityscape_dataset(root, False)
+    create_cityscape_dataset(root, True)
 
     # check_label(root, 'images', 'labels')
     # copy_to_trainval(root)
-    show_image()
+    # show_image()
