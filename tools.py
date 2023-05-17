@@ -1,5 +1,6 @@
 import os
 import shutil
+import random
 
 from tqdm import tqdm
 
@@ -105,6 +106,59 @@ def show_image(root=None):
     # plt.show()
 
 
+def create_CoCo_dataset(root):
+    images_path = os.path.join(root, 'val2017')
+    seg_mask_path = os.path.join(root, 'coco_mask')
+    ori_mask_path = os.path.join(root, 'labels')
+
+    dataset_path = os.path.join(root, 'coco_dataset')
+
+    images_data = os.path.join(dataset_path, 'images')
+    images_train = os.path.join(images_data, 'train')
+    if not os.path.exists(images_train):
+        os.makedirs(images_train)
+    images_val = os.path.join(images_data, 'val')
+    if not os.path.exists(images_val):
+        os.makedirs(images_val)
+
+    seg_maks_data = os.path.join(dataset_path, 'seg_labels')
+    seg_mask_train = os.path.join(seg_maks_data, 'train')
+    if not os.path.exists(seg_mask_train):
+        os.makedirs(seg_mask_train)
+    seg_mask_val = os.path.join(seg_maks_data, 'val')
+    if not os.path.exists(seg_mask_val):
+        os.makedirs(seg_mask_val)
+
+    ori_maks_data = os.path.join(dataset_path, 'ori_labels')
+    ori_mask_train = os.path.join(ori_maks_data, 'train')
+    if not os.path.exists(ori_mask_train):
+        os.makedirs(ori_mask_train)
+    ori_mask_val = os.path.join(ori_maks_data, 'val')
+    if not os.path.exists(ori_mask_val):
+        os.makedirs(ori_mask_val)
+
+    filelist = os.listdir(seg_mask_path)
+    lenth = len(filelist)
+
+    train_number = int(lenth * 0.8)
+
+    train = random.sample(filelist, train_number)
+    val = list(set(filelist) - set(train))
+
+    for item in tqdm(filelist):
+        if item in train:
+            shutil.copyfile(os.path.join(seg_mask_path, item), os.path.join(seg_mask_train, item))
+            shutil.copyfile(os.path.join(ori_mask_path, item), os.path.join(ori_mask_train, item))
+            shutil.copyfile(os.path.join(images_path, item.replace('png', 'jpg')),
+                            os.path.join(images_train, item.replace('png', 'jpg')))
+        elif item in val:
+            shutil.copyfile(os.path.join(seg_mask_path, item), os.path.join(seg_mask_val, item))
+            shutil.copyfile(os.path.join(ori_mask_path, item), os.path.join(ori_mask_val, item))
+            shutil.copyfile(os.path.join(images_path, item.replace('png', 'jpg')),
+                            os.path.join(images_val, item.replace('png', 'jpg')))
+
+
+# 不需要了，cityscape不需要把所有的图片都集中在一个文件夹下，白写了
 def create_cityscape_dataset(root, extra=True):
     leftImg8bit_path = os.path.join(root, 'leftImg8bit')
     gtFine_path = os.path.join(root, 'gtFine')
@@ -192,9 +246,10 @@ def create_cityscape_dataset(root, extra=True):
 
 if __name__ == '__main__':
     # root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1\merge_data'
-    root = '/data/cityscapes/'
-    create_cityscape_dataset(root, False)
-    create_cityscape_dataset(root, True)
+    root = 'data/COCOstuff/'
+    create_CoCo_dataset(root)
+    # create_cityscape_dataset(root, False)
+    # create_cityscape_dataset(root, True)
 
     # check_label(root, 'images', 'labels')
     # copy_to_trainval(root)

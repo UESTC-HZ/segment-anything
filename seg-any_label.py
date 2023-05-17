@@ -10,12 +10,14 @@ from tqdm import tqdm
 
 from label_process import get_geo_bbox, remove_small_regions, show_box, get_Cityscapes_bbox
 from load_model import load_predictor_model
+from pycocotools.coco import COCO
+from shapely import Polygon
 from segment_anything import predictor
 
 VIT_H = 'vit_h'
 VIT_L = 'vit_l'
 VIT_B = 'vit_b'
-DATASET_TYPE = ['geo', 'Cityscapes', 'COCOstuff']
+DATASET_TYPE = ['geo', 'Cityscapes', 'CoCo']
 
 GEO_CLASS_NAMES = ['farmland', 'greenhouse', 'tree', 'pond', 'house']
 Cityscapes_classes = {'unlabeled': 0, 'ego vehicle': 1, 'rectification border': 2, 'out of roi': 3, 'static': 4,
@@ -49,6 +51,19 @@ Cityscapes_trainId = {'road': 0,
                       'bicycle': 18}
 Cityscapes_instance_classes = ['person', 'rider', 'car', 'cargroup', 'truck', 'bus', 'caravan', 'trailer', 'train',
                                'motorcycle', 'bicycle']
+
+COCOstuff_mapping = {
+    1: 1,  # person
+    2: 2,  # bicycle
+    3: 3,  # car
+    4: 4,  # motorcycle
+    6: 5,  # bus
+    7: 6,  # train
+    8: 7,  # truck
+    17: 8,  # cat
+    18: 9,  # dog
+
+}
 
 
 def create_geo_segany_laebl(root, model_type=VIT_B):
@@ -211,8 +226,101 @@ def create_Cityscapes_segany_laebl(root, model_type=VIT_B):
                         segany_mask)
 
 
-def create_COCOstuff_segany_laebl():
-    pass
+def create_COCOstuff_segany_laebl(root, model_type=VIT_B, get_ori_mask=True, get_seg_mask=True):
+    image_path = os.path.join(root, 'val2017')
+    instance_path = os.path.join(root, 'instances_val2017.json')
+    coco = COCO(instance_path)
+
+    label_path = os.path.join(root, 'labels')
+    if not os.path.exists(label_path):
+        os.mkdir(label_path)
+    coco_mask_path = os.path.join(root, 'coco_mask')
+    if not os.path.exists(coco_mask_path):
+        os.mkdir(coco_mask_path)
+
+    # 初始化segment-anything模型
+    predictor = load_predictor_model(model_type)
+
+    # with open(instance_path, "r") as f:
+    #     instances = json.load(f)
+
+    images = coco.imgs
+    images_anns = coco.imgToAnns
+
+    for image_id in tqdm(images.keys()):
+        image = images[image_id]
+        image_name = image['file_name']
+
+
+         # = image['id']
+        height = image['height']
+        width = image['width']
+        anns = images_anns[image_id]
+
+        image = cv2.imread(os.path.join(image_path, image_name))  # 加载图片
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        predictor.set_image(image)
+
+        segany_mask = np.zeros((height, width), dtype=np.uint8)
+        ori_mask = np.zeros((height, width), dtype=np.uint8)
+        is_empty = True
+
+        for ann in anns:
+            category_id = ann['category_id']
+            if category_id in COCOstuff_mapping.keys():
+                class_id = COCOstuff_mapping[category_id]
+                is_empty = False
+            else:
+                continue
+
+            obj_mask = coco.annToMask(ann)
+            if get_ori_mask:
+                ori_mask = np.where(obj_mask == 1, class_id, ori_mask)
+
+            if get_seg_mask:
+                if not ann['iscrowd']:
+                    [x, y, w, h] = ann['bbox']  # x,y,w,h
+                    bbox = [x, y, x + w, y + h]
+                    input_box = np.array(bbox)
+                    mask, _, _ = predictor.predict(
+                        point_coords=None,
+                        point_labels=None,
+                        box=input_box[None, :],
+                        multimask_output=False,
+                    )
+
+                    mask = mask[0]
+                    mask, _ = remove_small_regions(mask, 2000, "holes")
+                    mask, _ = remove_small_regions(mask, 1000, "islands")
+                    segany_mask = np.where(mask, class_id, segany_mask)
+                else:
+                    bboxes = []
+                    obj_mask = obj_mask.astype(np.uint8)
+                    contours, _ = cv2.findContours(obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+                    for contour in contours:
+                        x, y, w, h = cv2.boundingRect(contour)
+                        bboxes.append([x, y, x + w, y + h])
+                    input_boxes = torch.tensor(bboxes, device=predictor.device)
+                    transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
+                    masks, _, _ = predictor.predict_torch(
+                        point_coords=None,
+                        point_labels=None,
+                        boxes=transformed_boxes,
+                        multimask_output=False,
+                    )
+
+                    for mask in masks:
+                        mask = mask.cpu().numpy()[0]
+                        mask, _ = remove_small_regions(mask, 2000, "holes")
+                        mask, _ = remove_small_regions(mask, 1000, "islands")
+                        segany_mask = np.where(mask, class_id, segany_mask)
+
+        if not is_empty:
+            if get_ori_mask:
+                cv2.imwrite(os.path.join(coco_mask_path, image_name.replace(".jpg", ".png")), ori_mask)
+            if get_seg_mask:
+                cv2.imwrite(os.path.join(label_path, image_name.replace(".jpg", ".png")), segany_mask)
 
 
 def create_segany_label(root, dataset_type, model_type):
@@ -226,8 +334,9 @@ def create_segany_label(root, dataset_type, model_type):
 
 
 if __name__ == '__main__':
-    root = '/data/cityscapes/'
-    # 'geo', 'Cityscapes', 'COCOstuff'
-    dataset_type = "Cityscapes"
-    model_type = VIT_H
+    root = 'data\COCOstuff'
+    # geo, Cityscapes, CoCOo
+    dataset_type = "CoCo"
+    # VIT_H(BIG),VIT_L，VIT_B(SMALL)
+    model_type = VIT_B
     create_segany_label(root, dataset_type, model_type)
