@@ -250,9 +250,6 @@ def create_COCOstuff_segany_laebl(root, model_type=VIT_B, get_ori_mask=True, get
     for image_id in tqdm(images.keys()):
         image = images[image_id]
         image_name = image['file_name']
-
-
-         # = image['id']
         height = image['height']
         width = image['width']
         anns = images_anns[image_id]
@@ -290,7 +287,7 @@ def create_COCOstuff_segany_laebl(root, model_type=VIT_B, get_ori_mask=True, get
                     )
 
                     mask = mask[0]
-                    mask, _ = remove_small_regions(mask, 2000, "holes")
+                    mask, _ = remove_small_regions(mask, 1000, "holes")
                     mask, _ = remove_small_regions(mask, 1000, "islands")
                     segany_mask = np.where(mask, class_id, segany_mask)
                 else:
@@ -312,8 +309,8 @@ def create_COCOstuff_segany_laebl(root, model_type=VIT_B, get_ori_mask=True, get
 
                     for mask in masks:
                         mask = mask.cpu().numpy()[0]
-                        mask, _ = remove_small_regions(mask, 2000, "holes")
-                        mask, _ = remove_small_regions(mask, 1000, "islands")
+                        mask, _ = remove_small_regions(mask, 100, "holes")
+                        mask, _ = remove_small_regions(mask, 100, "islands")
                         segany_mask = np.where(mask, class_id, segany_mask)
 
         if not is_empty:
