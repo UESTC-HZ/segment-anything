@@ -5,7 +5,8 @@ import random
 from tqdm import tqdm
 
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+import numpy as np
+
 from PIL import Image
 import cv2
 
@@ -107,9 +108,9 @@ def show_image(root=None):
 
 
 def create_CoCo_dataset(root):
-    images_path = os.path.join(root, 'val2017')
+    images_path = os.path.join(root, 'images', 'train2017')
     seg_mask_path = os.path.join(root, 'coco_mask')
-    ori_mask_path = os.path.join(root, 'labels')
+    ori_mask_path = os.path.join(root, 'seg_mask')
 
     dataset_path = os.path.join(root, 'coco_dataset')
 
@@ -140,7 +141,7 @@ def create_CoCo_dataset(root):
     filelist = os.listdir(seg_mask_path)
     lenth = len(filelist)
 
-    train_number = int(lenth * 0.8)
+    train_number = int(lenth * 0.7)
 
     train = random.sample(filelist, train_number)
     val = list(set(filelist) - set(train))
@@ -244,10 +245,46 @@ def create_cityscape_dataset(root, extra=True):
     print('Labels val number: ' + str(len(os.listdir(labels_val))))
 
 
+def check_label(root):
+    plt.figure(figsize=(10, 10))
+    for name in tqdm(os.listdir(root)):
+        label_path = os.path.join(root, name)
+        label_img = Image.open(label_path)
+        label = np.asarray(label_img)
+        person = np.sum(label == 255)
+        if person / label.size < 0.1:
+            os.remove(label_path)
+
+
+def check_VOC_label(root):
+    for label in tqdm(os.listdir(root)):
+        label_path = os.path.join(root, label)
+        label_img = Image.open(label_path)
+        color_map = label_img.palette.colors
+        img = np.asarray(label_img)
+        # classes = np.unique(image)
+        plt.figure(figsize=(10, 10))
+        plt.title('mask')
+        plt.imshow(label_img)
+        plt.show()
+
+        # if len(classes) == 2 and 0 in classes and 1 in classes:
+        #     continue
+        # else:
+        #     print(label + ":" + str(classes))
+
+
 if __name__ == '__main__':
-    # root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1\merge_data'
-    root = 'data/COCOstuff/'
+    # root = 'D:/Program/segment-anything/data/COCOstuff/coco_mask'
+    # check_label(root)
+
+    # cocodataset
+    root = '/data/coco/'
     create_CoCo_dataset(root)
+
+    # root = 'data/VOC2012/SegmentationClass'
+    # check_VOC_label(root)
+
     # create_cityscape_dataset(root, False)
     # create_cityscape_dataset(root, True)
 
