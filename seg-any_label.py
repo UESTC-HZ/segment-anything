@@ -1,9 +1,10 @@
 import json
 import os
+import shutil
 
 import cv2
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from PIL import Image
 import torch
 
@@ -19,7 +20,7 @@ from tools import create_CoCo_dataset
 VIT_H = 'vit_h'
 VIT_L = 'vit_l'
 VIT_B = 'vit_b'
-DATASET_TYPE = ['geo', 'Cityscapes', 'CoCo']
+DATASET_TYPE = ['geo', 'Cityscapes', 'CoCo', 'ADE20K']
 
 GEO_CLASS_NAMES = ['farmland', 'greenhouse', 'tree', 'pond', 'house']
 Cityscapes_classes = {'unlabeled': 0, 'ego vehicle': 1, 'rectification border': 2, 'out of roi': 3, 'static': 4,
@@ -63,6 +64,8 @@ COCOstuff_mapping = {
     # 7: 6,  # train
     # 8: 7,  # truck
 }
+
+ADE20K_classes = [13,20, 21, 23, 24, 31, 32, 70, 77, 79, 81, 84, 99, 116, 120, 128, 136]
 
 
 def create_geo_segany_laebl(root, model_type=VIT_B):
@@ -299,28 +302,6 @@ def create_COCOstuff_segany_laebl(root, model_type=VIT_B, get_ori_mask=True, get
                     segany_mask = np.where(mask, class_id, segany_mask)
             else:
                 continue
-                # 根据mask计算框并使用seg识别
-                # bboxes = []
-                # obj_mask = obj_mask.astype(np.uint8)
-                # contours, _ = cv2.findContours(obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-                #
-                # for contour in contours:
-                #     x, y, w, h = cv2.boundingRect(contour)
-                #     bboxes.append([x, y, x + w, y + h])
-                # input_boxes = torch.tensor(bboxes, device=predictor.device)
-                # transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
-                # masks, _, _ = predictor.predict_torch(
-                #     point_coords=None,
-                #     point_labels=None,
-                #     boxes=transformed_boxes,
-                #     multimask_output=False,
-                # )
-                #
-                # for mask in masks:
-                #     mask = mask.cpu().numpy()[0]
-                #     mask, _ = remove_small_regions(mask, 100, "holes")
-                #     mask, _ = remove_small_regions(mask, 100, "islands")
-                #     segany_mask = np.where(mask, class_id, segany_mask)
 
         if not is_empty:
             # 占比太少的人不要
@@ -340,6 +321,99 @@ def create_COCOstuff_segany_laebl(root, model_type=VIT_B, get_ori_mask=True, get
                 cv2.imwrite(os.path.join(coco_mask_path, image_name.replace(".jpg", ".png")), ori_mask)
 
 
+def create_ADE20K_segany_laebl(root, model_type):
+    images_path = os.path.join(root, 'images')
+    lables_path = os.path.join(root, 'annotations')
+    seg_path = os.path.join(root, 'seg-annotations')
+
+    image_train_path = os.path.join(images_path, 'training')
+    lable_train_path = os.path.join(lables_path, 'training')
+    seg_train_path = os.path.join(seg_path, 'training')
+    if not os.path.exists(seg_train_path):
+        os.makedirs(seg_train_path)
+
+    # 初始化segment-anything模型
+    predictor = load_predictor_model(model_type)
+
+    count = 0
+
+    for name in tqdm(os.listdir(lable_train_path)):
+        new_name = 'seg_' + name
+        # if name in os.listdir(seg_train_path):
+        #     continue
+        label = Image.open(os.path.join(lable_train_path, name))  # 加载原始标注
+        label = np.asarray(label)
+        classes = np.unique(label)
+
+        # 不存在需要修改类别
+        if not set(classes).intersection(set(ADE20K_classes)):
+            shutil.copyfile(os.path.join(lable_train_path, name), os.path.join(seg_train_path, new_name))
+            continue
+        count += 1
+        image = Image.open(os.path.join(image_train_path, name.replace('png', 'jpg')))  # 加载图片
+        image = np.asarray(image)
+
+        seg_label = label.copy()
+        # plt.figure(figsize=(10, 10))
+        # plt.imshow(seg_label)
+        # plt.show()
+        # plt.close()
+
+        # segany模型加载图片
+        predictor.set_image(image)
+
+        for class_id in classes:
+            if class_id not in ADE20K_classes:
+                continue
+            ori_mask = np.where(label == class_id, 1, 0)
+
+            # 根据mask计算框并使用seg识别
+            bboxes = []
+            obj_mask = ori_mask.astype(np.uint8)
+            contours, _ = cv2.findContours(obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+            for contour in contours:
+                x, y, w, h = cv2.boundingRect(contour)
+                bboxes.append([x, y, x + w, y + h])
+
+            input_boxes = torch.tensor(bboxes, device=predictor.device)
+            transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
+            masks, _, _ = predictor.predict_torch(
+                point_coords=None,
+                point_labels=None,
+                boxes=transformed_boxes,
+                multimask_output=False,
+            )
+
+            segany_mask = np.zeros_like(image)
+            for mask in masks:
+                mask = mask.cpu().numpy()[0]
+                mask, _ = remove_small_regions(mask, 1000, "holes")
+                mask, _ = remove_small_regions(mask, 100, "islands")
+                segany_mask = np.where(mask, class_id, 0)
+
+            # 借助原始标签修复识别结果
+            xor_mask = np.where(ori_mask == segany_mask, 0, 1)
+
+            # 避免识别反的情况
+            if (np.sum(xor_mask == 1) / ori_mask.size) > 0.5:
+                continue
+            xor_mask, _ = remove_small_regions(xor_mask, 100, "islands")
+
+            segany_mask = np.where(xor_mask > 0, class_id, segany_mask)
+            seg_label = np.where(label == class_id, 0, seg_label)
+            seg_label = np.where(segany_mask > 0, class_id, seg_label)
+
+            # plt.figure(figsize=(10, 10))
+            # plt.imshow(seg_label)
+            # plt.show()
+            # plt.close()
+
+        cv2.imwrite(os.path.join(seg_train_path, new_name), seg_label)
+
+    print("共修改图片标注数量：" + str(count))
+
+
 def create_segany_label(root, dataset_type, model_type):
     assert dataset_type in DATASET_TYPE, 'DataSet Type Error'
     if dataset_type is DATASET_TYPE[0]:
@@ -348,13 +422,15 @@ def create_segany_label(root, dataset_type, model_type):
         create_Cityscapes_segany_laebl(root, model_type)
     elif dataset_type is DATASET_TYPE[2]:
         create_COCOstuff_segany_laebl(root, model_type)
+    elif dataset_type is DATASET_TYPE[3]:
+        create_ADE20K_segany_laebl(root, model_type)
 
 
 if __name__ == '__main__':
-    root = '/data/coco/'
-    # geo, Cityscapes, CoCOo
-    dataset_type = "CoCo"
+    root = '/data/ade/ADEChallengeData2016/'
+    # geo, Cityscapes, CoCOo, ADE20K
+    dataset_type = "ADE20K"
     # VIT_H(BIG),VIT_L，VIT_B(SMALL)
     model_type = VIT_H
     create_segany_label(root, dataset_type, model_type)
-    create_CoCo_dataset(root)
+    # create_CoCo_dataset(root)
