@@ -245,6 +245,35 @@ def create_cityscape_dataset(root, extra=True):
     print('Labels val number: ' + str(len(os.listdir(labels_val))))
 
 
+def create_ADE20K_dataset(root):
+    images_path = os.path.join(root, 'images', 'training')
+    annotations_path = os.path.join(root, 'annotations', 'training')
+    seg_annotations_path = os.path.join(root, 'seg_annotations', 'training')
+
+    new_images_path = os.path.join(root, 'new_images', 'training')
+    new_annotations_path = os.path.join(root, 'new_annotations', 'training')
+    if not os.path.exists(new_images_path):
+        os.makedirs(new_images_path)
+    if not os.path.exists(new_annotations_path):
+        os.makedirs(new_annotations_path)
+
+    images_list = os.listdir(images_path)
+    annotations_list = os.listdir(annotations_path)
+    seg_annotations_list = os.listdir(seg_annotations_path)
+
+    for annotation in annotations_list:
+        shutil.copyfile(os.path.join(annotations_path, annotation), os.path.join(new_annotations_path, annotation))
+
+    for seg_annotation in seg_annotations_list:
+        shutil.copyfile(os.path.join(seg_annotations_path, seg_annotation),
+                        os.path.join(new_annotations_path, seg_annotation))
+
+    for image in images_list:
+        shutil.copyfile(os.path.join(images_path, image), os.path.join(new_images_path, image))
+        if image.replace('jpg', 'png') in seg_annotations_list:
+            shutil.copyfile(os.path.join(images_path, image), os.path.join(new_images_path, 'seg_' + image))
+
+
 def check_label(root):
     plt.figure(figsize=(10, 10))
     for name in tqdm(os.listdir(root)):
@@ -275,12 +304,14 @@ def check_VOC_label(root):
 
 
 if __name__ == '__main__':
+    root = 'data/ade/ADEChallengeData2016/'
+
     # root = 'D:/Program/segment-anything/data/COCOstuff/coco_mask'
     # check_label(root)
 
     # cocodataset
-    root = '/data/coco/'
-    create_CoCo_dataset(root)
+    # root = '/data/coco/'
+    # create_CoCo_dataset(root)
 
     # root = 'data/VOC2012/SegmentationClass'
     # check_VOC_label(root)
