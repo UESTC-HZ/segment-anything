@@ -305,6 +305,7 @@ def check_VOC_label(root):
 
 if __name__ == '__main__':
     root = 'data/ade/ADEChallengeData2016/'
+    create_ADE20K_dataset(root)
 
     # root = 'D:/Program/segment-anything/data/COCOstuff/coco_mask'
     # check_label(root)
