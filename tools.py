@@ -248,7 +248,7 @@ def create_cityscape_dataset(root, extra=True):
 def create_ADE20K_dataset(root):
     images_path = os.path.join(root, 'images', 'training')
     annotations_path = os.path.join(root, 'annotations', 'training')
-    seg_annotations_path = os.path.join(root, 'seg_annotations', 'training')
+    seg_annotations_path = os.path.join(root, 'seg-annotations', 'training')
 
     new_images_path = os.path.join(root, 'new_images', 'training')
     new_annotations_path = os.path.join(root, 'new_annotations', 'training')
