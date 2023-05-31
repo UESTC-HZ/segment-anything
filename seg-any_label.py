@@ -351,6 +351,10 @@ def create_ADE20K_segany_laebl(root, model_type):
             continue
         count += 1
         image = Image.open(os.path.join(image_train_path, name.replace('png', 'jpg')))  # 加载图片
+        # 图片质量缺陷
+        if image.mode != "RGB":
+            shutil.copyfile(os.path.join(lable_train_path, name), os.path.join(seg_train_path, new_name))
+            continue
         image = np.asarray(image)
 
         seg_label = label.copy()
