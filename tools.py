@@ -270,8 +270,8 @@ def create_ADE20K_dataset(root):
 
     for image in images_list:
         shutil.copyfile(os.path.join(images_path, image), os.path.join(new_images_path, image))
-        if image.replace('jpg', 'png') in seg_annotations_list:
-            shutil.copyfile(os.path.join(images_path, image), os.path.join(new_images_path, 'seg_' + image))
+
+        shutil.copyfile(os.path.join(images_path, image), os.path.join(new_images_path, 'seg_' + image))
 
 
 def check_label(root):
