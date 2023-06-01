@@ -270,7 +270,6 @@ def create_ADE20K_dataset(root):
 
     for image in images_list:
         shutil.copyfile(os.path.join(images_path, image), os.path.join(new_images_path, image))
-
         shutil.copyfile(os.path.join(images_path, image), os.path.join(new_images_path, 'seg_' + image))
 
 

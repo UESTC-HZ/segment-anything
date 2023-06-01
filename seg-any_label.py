@@ -15,7 +15,7 @@ from load_model import load_predictor_model
 from pycocotools.coco import COCO
 # from shapely import Polygon
 from segment_anything import predictor
-from tools import create_CoCo_dataset
+from tools import create_CoCo_dataset, create_ADE20K_dataset
 
 VIT_H = 'vit_h'
 VIT_L = 'vit_l'
@@ -438,4 +438,4 @@ if __name__ == '__main__':
     # VIT_H(BIG),VIT_L，VIT_B(SMALL)
     model_type = VIT_H
     create_segany_label(root, dataset_type, model_type)
-    # create_CoCo_dataset(root)
+    create_ADE20K_dataset(root)
