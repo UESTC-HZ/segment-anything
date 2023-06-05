@@ -68,6 +68,8 @@ COCOstuff_mapping = {
 ADE20K_classes = [31, 35, 61, 63, 64, 68, 69, 70, 85, 89, 98, 99, 104, 105, 110, 111, 114, 119, 120, 121, 125,
                   127, 131, 133, 144, 150]
 
+ADE20K_classes = list(range(1, 151))
+
 
 def create_geo_segany_laebl(root, model_type=VIT_B):
     image_path = os.path.join(root, "images")
