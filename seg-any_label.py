@@ -87,7 +87,6 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
     predictor = load_predictor_model(model_type)
 
     for name in tqdm(os.listdir(ori_mask_path)):
-        print(name)
         label = Image.open(os.path.join(ori_mask_path, name))  # 加载原始标注
         label = np.asarray(label)
         classes = np.unique(label)
@@ -436,10 +435,10 @@ def create_segany_label(root, dataset_type, model_type):
 
 if __name__ == '__main__':
     root = '/data/08/compress_0.1_images_1/'
-    # root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1'
+    root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1'
     # geo, Cityscapes, CoCOo, ADE20K
     dataset_type = "geo"
     # VIT_H(BIG),VIT_L，VIT_B(SMALL)
-    model_type = VIT_B
+    model_type = VIT_H
     create_segany_label(root, dataset_type, model_type)
     create_geo_dataset(root)
