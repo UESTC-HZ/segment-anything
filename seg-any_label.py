@@ -121,7 +121,7 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
                 masks, _, _ = predictor.predict(
                     point_coords=None,
                     point_labels=None,
-                    boxes=input_box[None, :],
+                    box=input_box[None, :],
                     multimask_output=False,
                 )
 
