@@ -113,25 +113,22 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
             obj_mask = ori_mask.astype(np.uint8)
             contours, _ = cv2.findContours(obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
+            segany_mask = np.zeros_like(image)
             for contour in contours:
                 x, y, w, h = cv2.boundingRect(contour)
-                bboxes.append([x, y, x + w, y + h])
+                input_box = np.array([x, y, x + w, y + h])
 
-            input_boxes = torch.tensor(bboxes, device=predictor.device)
-            transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
-            masks, _, _ = predictor.predict_torch(
-                point_coords=None,
-                point_labels=None,
-                boxes=transformed_boxes,
-                multimask_output=False,
-            )
+                masks, _, _ = predictor.predict(
+                    point_coords=None,
+                    point_labels=None,
+                    boxes=input_box[None, :],
+                    multimask_output=False,
+                )
 
-            segany_mask = np.zeros_like(image)
-            for mask in masks:
-                mask = mask.cpu().numpy()[0]
+                mask = masks[0]
                 mask, _ = remove_small_regions(mask, 1000, "holes")
-                mask, _ = remove_small_regions(mask, 100, "islands")
-                segany_mask = np.where(mask, class_id, 0)
+                mask, _ = remove_small_regions(mask, 1000, "islands")
+                segany_mask = np.where(mask, class_id, segany_mask)
 
             # 借助原始标签修复识别结果
             xor_mask = np.where(ori_mask == segany_mask, 0, 1)
