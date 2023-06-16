@@ -113,7 +113,7 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
             obj_mask = ori_mask.astype(np.uint8)
             contours, _ = cv2.findContours(obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-            segany_mask = np.zeros_like(image)
+            segany_mask = np.zeros_like(label)
             for contour in contours:
                 x, y, w, h = cv2.boundingRect(contour)
                 input_box = np.array([x, y, x + w, y + h])
