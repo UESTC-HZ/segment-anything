@@ -15,14 +15,14 @@ from load_model import load_predictor_model
 from pycocotools.coco import COCO
 # from shapely import Polygon
 from segment_anything import predictor
-from tools import create_CoCo_dataset, create_ADE20K_dataset
+from tools import create_CoCo_dataset, create_ADE20K_dataset, create_geo_dataset
 
 VIT_H = 'vit_h'
 VIT_L = 'vit_l'
 VIT_B = 'vit_b'
 DATASET_TYPE = ['geo', 'Cityscapes', 'CoCo', 'ADE20K']
 
-GEO_CLASS_NAMES = ['farmland', 'greenhouse', 'tree', 'pond', 'house']
+GEO_CLASSES = [1, 2]
 Cityscapes_classes = {'unlabeled': 0, 'ego vehicle': 1, 'rectification border': 2, 'out of roi': 3, 'static': 4,
                       'dynamic': 5, 'ground': 6, 'road': 7, 'sidewalk': 8, 'parking': 9, 'rail track': 10,
                       'building': 11, 'wall': 12, 'fence': 13, 'guard rail': 14, 'bridge': 15, 'tunnel': 16, 'pole': 17,
@@ -77,8 +77,8 @@ ADE20K_classes = [27, 30, 45, 47, 64, 82, 94, 101, 103, 104, 106, 114, 117, 120,
 
 
 def create_geo_segany_laebl(root, model_type=VIT_B):
-    image_path = os.path.join(root, "images")
-    json_label_path = os.path.join(root, "jsons")
+    image_path = os.path.join(root, "compress_image")
+    ori_mask_path = os.path.join(root, "compress_mask")
     segany_label_path = os.path.join(root, "seg-any_mask")
     if not os.path.exists(segany_label_path):
         os.mkdir(segany_label_path)
@@ -86,76 +86,71 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
     # 初始化segment-anything模型
     predictor = load_predictor_model(model_type)
 
-    for img in tqdm(os.listdir(image_path)):
-        image = cv2.imread(os.path.join(image_path, img))
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        predictor.set_image(image)
-        h, w = image.shape[:2]
+    for name in tqdm(os.listdir(ori_mask_path)):
+        label = Image.open(os.path.join(ori_mask_path, name))  # 加载原始标注
+        label = np.asarray(label)
+        classes = np.unique(label)
 
-        # print("height:" + str(height) + " width:" + str(width))
+        image = Image.open(os.path.join(image_path, name.replace('png', 'jpg')))  # 加载图片
+        image = np.asarray(image)
 
-        json_name = img.replace('jpg', 'json')
-        with open(os.path.join(json_label_path, json_name), "r") as f:
-            jn = json.load(f)
-        bboxes = get_geo_bbox(jn, 20)
-
-        class_mask = []
-        for i in range(len(GEO_CLASS_NAMES)):
-            class_name = GEO_CLASS_NAMES[i]
-            full_mask = np.zeros((h, w), dtype=bool)
-            input_boxes = np.array(bboxes[class_name])
-            if len(input_boxes) > 0:
-                input_boxes = torch.tensor(input_boxes, device=predictor.device)
-
-                transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, (h, w))
-
-                masks, _, _ = predictor.predict_torch(
-                    point_coords=None,
-                    point_labels=None,
-                    boxes=transformed_boxes,
-                    multimask_output=False,
-                )
-
-                for mask in masks:
-                    tmp_mask = mask.cpu().numpy()[0]
-                    full_mask = full_mask | tmp_mask
-                # plt.figure(figsize=(10, 10))
-                # plt.imshow(full_mask)
-                # for box in input_boxes:
-                #     show_box(box.cpu().numpy(), plt.gca())
-                # plt.show()
-                full_mask, _ = remove_small_regions(full_mask, 1000, "holes")
-                full_mask, _ = remove_small_regions(full_mask, 1000, "islands")
-                # plt.figure(figsize=(10, 10))
-                # plt.imshow(full_mask)
-                # plt.show()
-
-            class_mask.append(full_mask)
-
-        segany_mask = np.zeros((h, w))
-        for i in range(len(class_mask)):
-            mask = class_mask[i]
-            mask = np.where(mask, i + 1, 0)
-            segany_mask = np.add.reduce([segany_mask, mask])
-
-            segany_mask = np.where(segany_mask > (i + 1), segany_mask - (i + 1), segany_mask)
-
-        # 压缩后的图片大小
-        h_ = h
-        w_ = w
-        if h > 1024 or w > 1024:
-            if h >= w:
-                h_ = 1024
-                w_ = int(w * h_ / h)
-            elif h < w:
-                w_ = 1024
-                h_ = int(h * w_ / w)
-        segany_mask = cv2.resize(segany_mask, (w_, h_))
-        # print(np.unique(segany_mask))
+        seg_label = label.copy()
         # plt.figure(figsize=(10, 10))
-        # plt.imshow(segany_mask)
+        # plt.imshow(seg_label)
         # plt.show()
-        cv2.imwrite(os.path.join(segany_label_path, img.replace(".jpg", ".png")), segany_mask)
+        # plt.close()
+
+        # segany模型加载图片
+        predictor.set_image(image)
+
+        for class_id in classes:
+            if class_id not in GEO_CLASSES:
+                continue
+            ori_mask = np.where(label == class_id, 1, 0)
+
+            # 根据mask计算框并使用seg识别
+            bboxes = []
+            obj_mask = ori_mask.astype(np.uint8)
+            contours, _ = cv2.findContours(obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+            for contour in contours:
+                x, y, w, h = cv2.boundingRect(contour)
+                bboxes.append([x, y, x + w, y + h])
+
+            input_boxes = torch.tensor(bboxes, device=predictor.device)
+            transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
+            masks, _, _ = predictor.predict_torch(
+                point_coords=None,
+                point_labels=None,
+                boxes=transformed_boxes,
+                multimask_output=False,
+            )
+
+            segany_mask = np.zeros_like(image)
+            for mask in masks:
+                mask = mask.cpu().numpy()[0]
+                mask, _ = remove_small_regions(mask, 1000, "holes")
+                mask, _ = remove_small_regions(mask, 100, "islands")
+                segany_mask = np.where(mask, class_id, 0)
+
+            # 借助原始标签修复识别结果
+            xor_mask = np.where(ori_mask == segany_mask, 0, 1)
+
+            # 避免识别反的情况
+            if (np.sum(xor_mask == 1) / ori_mask.size) > 0.5:
+                continue
+            xor_mask, _ = remove_small_regions(xor_mask, 100, "islands")
+
+            segany_mask = np.where(xor_mask > 0, class_id, segany_mask)  # 修补标注
+            seg_label = np.where(label == class_id, 0, seg_label)  # 清空原本标注
+            seg_label = np.where(segany_mask > 0, class_id, seg_label)  # 更新标注
+
+            # plt.figure(figsize=(10, 10))
+            # plt.imshow(seg_label)
+            # plt.show()
+            # plt.close()
+
+        cv2.imwrite(os.path.join(segany_label_path, name), seg_label)
 
 
 def create_Cityscapes_segany_laebl(root, model_type=VIT_B):
@@ -439,10 +434,11 @@ def create_segany_label(root, dataset_type, model_type):
 
 
 if __name__ == '__main__':
-    root = '/data/ade/ADEChallengeData2016/'
+    root = '/data/08/compress_0.1_images_1/'
+    # root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1'
     # geo, Cityscapes, CoCOo, ADE20K
-    dataset_type = "ADE20K"
+    dataset_type = "geo"
     # VIT_H(BIG),VIT_L，VIT_B(SMALL)
     model_type = VIT_H
     create_segany_label(root, dataset_type, model_type)
-    create_ADE20K_dataset(root)
+    create_geo_dataset(root)
