@@ -439,6 +439,6 @@ if __name__ == '__main__':
     # geo, Cityscapes, CoCOo, ADE20K
     dataset_type = "geo"
     # VIT_H(BIG),VIT_L，VIT_B(SMALL)
-    model_type = VIT_H
+    model_type = VIT_L
     create_segany_label(root, dataset_type, model_type)
     create_geo_dataset(root)
