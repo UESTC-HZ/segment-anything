@@ -121,7 +121,7 @@ def create_geo_dataset(root):
     seg_train_images = os.path.join(seg_dataset, "train", 'images')
     seg_train_labels = os.path.join(seg_dataset, "train", 'labels')
     seg_val_images = os.path.join(seg_dataset, "val", 'images')
-    seg_val_labels = os.path.join(seg_dataset, "val", 'images')
+    seg_val_labels = os.path.join(seg_dataset, "val", 'labels')
 
     if not os.path.exists(ori_train_images):
         os.makedirs(ori_train_images)
@@ -158,7 +158,7 @@ def create_geo_dataset(root):
         # labels
         shutil.copyfile(os.path.join(labels_path, lab), os.path.join(ori_train_labels, lab))
         shutil.copyfile(os.path.join(labels_path, lab), os.path.join(seg_train_labels, lab))
-        shutil.copyfile(os.path.join(seg_path, lab), os.path.join(seg_train_labels, 'seg' + lab))
+        shutil.copyfile(os.path.join(seg_path, lab), os.path.join(seg_train_labels, 'seg_' + lab))
 
     # val
     for img in val:

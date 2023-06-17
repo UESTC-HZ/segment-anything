@@ -4,9 +4,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-root = "data/COCOstuff/coco_mask"
+root = "./labels"
 for png in tqdm(os.listdir(root)):
-    mask = cv2.imread(os.path.join(root, png), 0)
-    mask = np.where(mask == 1, 255, 0)
-    cv2.imwrite(os.path.join(root, png), mask)
-
+    if png.find('seg'):
+        os.rename(os.path.join(root, png), os.path.join(root, png.replace('seg', "seg_")))

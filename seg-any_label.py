@@ -389,7 +389,7 @@ def create_ADE20K_segany_laebl(root, model_type):
                 multimask_output=False,
             )
 
-            segany_mask = np.zeros_like(image)
+            segany_mask = np.zeros_like(label)
             for mask in masks:
                 mask = mask.cpu().numpy()[0]
                 mask, _ = remove_small_regions(mask, 1000, "holes")
