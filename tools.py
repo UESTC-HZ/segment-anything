@@ -165,9 +165,11 @@ def create_geo_dataset(root):
         lab = img.replace('jpg', 'png')
         shutil.copyfile(os.path.join(images_path, img), os.path.join(ori_val_images, img))
         shutil.copyfile(os.path.join(images_path, img), os.path.join(seg_val_images, img))
+        shutil.copyfile(os.path.join(images_path, img), os.path.join(seg_val_images, 'seg_' + img))
 
         shutil.copyfile(os.path.join(labels_path, lab), os.path.join(ori_val_labels, lab))
         shutil.copyfile(os.path.join(labels_path, lab), os.path.join(seg_val_labels, lab))
+        shutil.copyfile(os.path.join(seg_path, lab), os.path.join(seg_val_labels, 'seg_' + lab))
 
 
 def create_CoCo_dataset(root):
