@@ -438,8 +438,8 @@ def create_segany_label(root, dataset_type, model_type):
 
 
 if __name__ == '__main__':
-    # root = '/data/08/compress_0.1_images_1/'
-    root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1'
+    root = '/data/08/compress_0.1_images_1/'
+    # root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1'
     # geo, Cityscapes, CoCOo, ADE20K
     dataset_type = "geo"
     # VIT_H(BIG),VIT_L，VIT_B(SMALL)
