@@ -95,6 +95,7 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
         image = np.asarray(image)
 
         seg_label = label.copy()
+
         # plt.figure(figsize=(10, 10))
         # plt.imshow(seg_label)
         # plt.show()
@@ -114,10 +115,12 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
             contours, _ = cv2.findContours(obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
             segany_mask = np.zeros_like(label)
+
             for contour in contours:
                 x, y, w, h = cv2.boundingRect(contour)
                 input_box = np.array([x, y, x + w, y + h])
 
+                # show_box(input_box, plt.gca())
                 masks, _, _ = predictor.predict(
                     point_coords=None,
                     point_labels=None,
@@ -130,23 +133,27 @@ def create_geo_segany_laebl(root, model_type=VIT_B):
                 mask, _ = remove_small_regions(mask, 1000, "islands")
                 segany_mask = np.where(mask, class_id, segany_mask)
 
+                # plt.figure(figsize=(10, 10))
+                # plt.imshow(segany_mask)
+                # plt.show()
+                # plt.close()
+
             # 借助原始标签修复识别结果
             xor_mask = np.where(ori_mask == segany_mask, 0, 1)
 
             # 避免识别反的情况
             if (np.sum(xor_mask == 1) / ori_mask.size) > 0.5:
                 continue
-            xor_mask, _ = remove_small_regions(xor_mask, 100, "islands")
+            xor_mask, _ = remove_small_regions(xor_mask, 2000, "islands")
 
             segany_mask = np.where(xor_mask > 0, class_id, segany_mask)  # 修补标注
             seg_label = np.where(label == class_id, 0, seg_label)  # 清空原本标注
             seg_label = np.where(segany_mask > 0, class_id, seg_label)  # 更新标注
 
-            # plt.figure(figsize=(10, 10))
-            # plt.imshow(seg_label)
-            # plt.show()
-            # plt.close()
-
+        plt.figure(figsize=(10, 10))
+        plt.imshow(seg_label)
+        plt.show()
+        plt.close()
         cv2.imwrite(os.path.join(segany_label_path, name), seg_label)
 
 
@@ -431,8 +438,8 @@ def create_segany_label(root, dataset_type, model_type):
 
 
 if __name__ == '__main__':
-    root = '/data/08/compress_0.1_images_1/'
-    # root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1'
+    # root = '/data/08/compress_0.1_images_1/'
+    root = 'D:\Desktop\classes_08\merge_house\compress_0.1_images_1'
     # geo, Cityscapes, CoCOo, ADE20K
     dataset_type = "geo"
     # VIT_H(BIG),VIT_L，VIT_B(SMALL)

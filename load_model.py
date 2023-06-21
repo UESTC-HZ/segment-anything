@@ -1,11 +1,15 @@
 from segment_anything import sam_model_registry, SamPredictor, SamAutomaticMaskGenerator
-
+#
 model = {
     "vit_h": "model/sam_vit_h_4b8939.pth",
     "vit_l": "model/sam_vit_l_0b3195.pth",
     "vit_b": "model/sam_vit_b_01ec64.pth",
 }
-
+hq_model = {
+    "vit_h": "model/sam_hq_vit_h.pth",
+    "vit_l": "model/sam_hq_vit_l.pth",
+    "vit_b": "model/sam_hq_vit_b.pth",
+}
 
 def load_predictor_model(model_type, device="cuda"):
     sam_checkpoint = model[model_type]
